@@ -62,6 +62,7 @@ class DSC(nn.Module):
         ss_out_dict = self.sem_branch(ss_data_dict, example)  # B, C, D, H, W
 
         sc_data_dict = {}
+
         occupancy = example['occupancy'].permute(0, 3, 2, 1) # B, D, H, W
         sc_data_dict['vw_dense'] = occupancy.unsqueeze(1)
         sc_out_dict = self.com_branch(sc_data_dict, example)
@@ -77,7 +78,7 @@ class DSC(nn.Module):
             return {'pred_semantic_1_1': out_scale_1_1}, loss_dict
 
         return {'pred_semantic_1_1': out_scale_1_1}
-
+    
     def compute_loss(self, scores, labels, ss_loss_dict, sc_loss_dict):
         '''
         :param: prediction: the predicted tensor, must be [BS, C, H, W, D]

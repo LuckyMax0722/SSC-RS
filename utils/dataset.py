@@ -1,9 +1,10 @@
 from torch.utils.data import DataLoader
 
-from datasets import SemanticKitti, collate_fn
+from datasets import SemanticKitti, collate_fn, DSEC
 
 
 def get_dataset(_cfg):
+
     if _cfg['DATASET']['TYPE'] == 'SemanticKITTI':
         data_root = _cfg['DATASET']['DATA_ROOT']
         config_file = _cfg['DATASET']['CONFIG_FILE']
@@ -12,13 +13,33 @@ def get_dataset(_cfg):
         ds_train = SemanticKitti(data_root, config_file, 'train', lims, sizes, augmentation=True, shuffle_index=True)
         ds_val = SemanticKitti(data_root, config_file, 'valid', lims, sizes, augmentation=False, shuffle_index=False)
         ds_test = SemanticKitti(data_root, config_file, 'test', lims, sizes, augmentation=False, shuffle_index=False)
-    dataset = {}
-    train_batch_size = _cfg['TRAIN']['BATCH_SIZE']
-    val_batch_size = _cfg['VAL']['BATCH_SIZE']
-    num_workers = _cfg['DATALOADER']['NUM_WORKERS']
 
-    dataset['train'] = DataLoader(ds_train, batch_size=train_batch_size, num_workers=num_workers, shuffle=True, collate_fn=collate_fn)
-    dataset['val'] = DataLoader(ds_val, batch_size=val_batch_size, num_workers=num_workers, shuffle=False, collate_fn=collate_fn)
-    dataset['test'] = DataLoader(ds_test, batch_size=2, num_workers=num_workers, shuffle=False, collate_fn=collate_fn)
+        dataset = {}
+        train_batch_size = _cfg['TRAIN']['BATCH_SIZE']
+        val_batch_size = _cfg['VAL']['BATCH_SIZE']
+        num_workers = _cfg['DATALOADER']['NUM_WORKERS']
 
-    return dataset
+        dataset['train'] = DataLoader(ds_train, batch_size=train_batch_size, num_workers=num_workers, shuffle=True, collate_fn=collate_fn)
+        dataset['val'] = DataLoader(ds_val, batch_size=val_batch_size, num_workers=num_workers, shuffle=False, collate_fn=collate_fn)
+        dataset['test'] = DataLoader(ds_test, batch_size=2, num_workers=num_workers, shuffle=False, collate_fn=collate_fn)
+
+        return dataset
+    
+    elif _cfg['DATASET']['TYPE'] == 'DSEC':
+        data_root = _cfg['DATASET']['DATA_ROOT']
+        config_file = _cfg['DATASET']['CONFIG_FILE']
+        lims = _cfg['DATASET']['LIMS']
+        sizes = _cfg['DATASET']['SIZES']
+        ds_infer = DSEC(data_root, config_file, 'infer', lims, sizes, augmentation=False, shuffle_index=False)
+
+        ds_infer[0]
+        
+        dataset = {}
+        num_workers = _cfg['DATALOADER']['NUM_WORKERS']
+        dataset['infer'] = DataLoader(ds_infer, batch_size=1, num_workers=num_workers, shuffle=False, collate_fn=collate_fn)
+        
+        return dataset
+
+    else:
+        print("wrong dataset name, please check the yaml file")
+

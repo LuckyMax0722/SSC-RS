@@ -126,6 +126,9 @@ class SemanticKitti(torch.utils.data.Dataset):
                     scan_data = sc_remap_lut[scan_data]
             else:
                 scan_data = unpack(np.fromfile(self.filepaths[typ][idx], dtype=np.uint8))
+                print("================")
+                print(self.filepaths[typ][idx])
+                print(len(scan_data))
             scan_data = scan_data.reshape((self.sizes[0]//scale, self.sizes[1]//scale, self.sizes[2]//scale))
             scan_data = scan_data.astype(np.float32)
             if self.augmentation:

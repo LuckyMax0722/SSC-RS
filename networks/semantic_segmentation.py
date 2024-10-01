@@ -5,34 +5,37 @@ import torch.nn.functional as F
 import torch_scatter
 
 import spconv
+from spconv.pytorch.modules import SparseModule
+from spconv.pytorch import SparseSequential, SubMConv3d, SparseConvTensor
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from utils.lovasz_losses import lovasz_softmax
 
-class BasicBlock(spconv.SparseModule):
+class BasicBlock(SparseModule):
     def __init__(self, C_in, C_out, indice_key):
         super(BasicBlock, self).__init__()
-        self.layers_in = spconv.SparseSequential(
-            spconv.SubMConv3d(C_in, C_out, 1, indice_key=indice_key, bias=False),
+        self.layers_in = SparseSequential(
+            SubMConv3d(C_in, C_out, 1, indice_key=indice_key, bias=False),
             nn.BatchNorm1d(C_out),
         )
-        self.layers = spconv.SparseSequential(
-            spconv.SubMConv3d(C_in, C_out, 3, indice_key=indice_key, bias=False),
+        self.layers = SparseSequential(
+            SubMConv3d(C_in, C_out, 3, indice_key=indice_key, bias=False),
             nn.BatchNorm1d(C_out),
             nn.LeakyReLU(0.1),
-            spconv.SubMConv3d(C_out, C_out, 3, indice_key=indice_key, bias=False),
+            SubMConv3d(C_out, C_out, 3, indice_key=indice_key, bias=False),
             nn.BatchNorm1d(C_out)
         )
-        self.relu2 = spconv.SparseSequential(
+        self.relu2 = SparseSequential(
             nn.LeakyReLU(0.1)
         )
 
     def forward(self, x):
         identity = self.layers_in(x)
         out = self.layers(x)
-        output = spconv.SparseConvTensor(sum([i.features for i in [identity, out]]),
+        output = SparseConvTensor(sum([i.features for i in [identity, out]]),
                                          out.indices, out.spatial_shape, out.batch_size)
         output.indice_dict = out.indice_dict
         output.grid = out.grid
@@ -44,7 +47,7 @@ def make_layers_sp(C_in, C_out, blocks, indice_key):
     layers.append(BasicBlock(C_in, C_out, indice_key))
     for _ in range(1, blocks):
         layers.append(BasicBlock(C_out, C_out, indice_key))
-    return spconv.SparseSequential(*layers)
+    return SparseSequential(*layers)
 
 
 def scatter(x, idx, method, dim=0):
@@ -85,7 +88,7 @@ def voxel_sem_target(point_voxel_coors, sem_label):
     return unq_sem, unq_voxel
 
 
-class SFE(spconv.SparseModule):
+class SFE(SparseModule):
     def __init__(self, in_channels, out_channels, layer_name, layer_num=1):
         super().__init__()
         self.spconv_layers = make_layers_sp(in_channels, out_channels, layer_num, layer_name)
@@ -201,7 +204,7 @@ class SemanticBranch(nn.Module):
         unq, unq_inv = torch.unique(
             torch.cat([vw_coord[:, 0].reshape(-1, 1), vw_coord[:, -2:]], dim=-1).int(), return_inverse=True, dim=0)
         bev_fea = scatter(vw_features, unq_inv, method='max')
-        bev_dense = spconv.SparseConvTensor(bev_fea, unq.int(), sizes[-2:], batch_size).dense() # B, C, H, W
+        bev_dense = SparseConvTensor(bev_fea, unq.int(), sizes[-2:], batch_size).dense() # B, C, H, W
 
         return bev_dense
 
@@ -211,7 +214,7 @@ class SemanticBranch(nn.Module):
             pw_label = torch.cat(pw_label, dim=0)
 
         coord = torch.cat([coord_ind[:, 0].reshape(-1, 1), torch.flip(coord_ind, dims=[1])[:, :3]], dim=1)
-        input_tensor = spconv.SparseConvTensor(
+        input_tensor = SparseConvTensor(
             vw_features, coord.int(), np.array(self.sizes, np.int32)[::-1], batch_size
         )
         conv1_output = self.conv1_block(input_tensor)
@@ -219,7 +222,7 @@ class SemanticBranch(nn.Module):
             input_coords_inv=full_coord)
         proj1_bev = self.bev_projection(proj1_vw, vw1_coord, (np.array(self.sizes, np.int32) // 2)[::-1], batch_size)
 
-        conv2_input_tensor = spconv.SparseConvTensor(
+        conv2_input_tensor = SparseConvTensor(
             proj1_vw, vw1_coord.int(), (np.array(self.sizes, np.int32) // 2)[::-1], batch_size
         )
         conv2_output = self.conv2_block(conv2_input_tensor)
@@ -227,7 +230,7 @@ class SemanticBranch(nn.Module):
             input_coords_inv=pw1_coord)
         proj2_bev = self.bev_projection(proj2_vw, vw2_coord, (np.array(self.sizes, np.int32) // 4)[::-1], batch_size)
 
-        conv3_input_tensor = spconv.SparseConvTensor(
+        conv3_input_tensor = SparseConvTensor(
             proj2_vw, vw2_coord.int(), (np.array(self.sizes, np.int32) // 4)[::-1], batch_size
         )
         conv3_output = self.conv3_block(conv3_input_tensor)

@@ -132,3 +132,4 @@ weights/
 
 # Python
 .idea/
+ckpt/weights_epoch_035.pth

@@ -1,7 +1,7 @@
 
 import torch
 from .semantic_kitti import SemanticKitti
-
+from .dsec import DSEC
 
 def collate_fn(data):
     keys = data[0][0].keys()
